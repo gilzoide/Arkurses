@@ -1108,7 +1108,7 @@ void FaseDois ()
 		" <===> "
 	};
 
-	int x, y;
+	int x, y, i;
 
 // apaga o "Finish Him!"
 	mvprintw (BARRA_y0 + 2, COLS/2 - 5, "           ");
@@ -1173,11 +1173,26 @@ void FaseDois ()
 		mvprintw (CAMPO_y0 - 3, (COLS - strlen (falas[y]))/2 + 2, falas[y]);
 		refresh ();
 		usleep (25e5);
+// ó a maldição!
+		if (y == 6) {
+			for (i = 0; i < 3; i++) {
+				for (x = 2; x < 10; x++) {
+					wbkgd (barra, COLOR_PAIR (x));
+					wrefresh (barra);
+					usleep (1e5);
+				}
+			}
+			wbkgd (barra, COLOR_PAIR (8));
+			wrefresh (barra);
+			usleep (3e5);
+		}
 		y++;
 		mvprintw (CAMPO_y0 - 2, (COLS - strlen (falas[y]))/2 + 1, falas[y]);
 		refresh ();
 		usleep (25e5);
 	}
+
+
 	attron (A_BOLD);
 	mvprintw (BARRA_y0 + 2, COLS/2 - 4, "Kill him!");
 	refresh ();
