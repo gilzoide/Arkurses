@@ -1,4 +1,4 @@
-//#define FASEDOIS
+#define FASEDOIS
 
 /*
  *						Arkanoid versus Ncurses: ARKURSES
@@ -38,12 +38,12 @@
  *	Hell, yeah
  *	Gil Barbosa Reis
  *
-*/
+ */
 
 
 #include <ncurses.h>
 #include <panel.h>
-#include <stdlib.h>	// para o rand () e srand ()
+#include <stdlib.h>	// para o rand ()/srand ()
 #include <time.h>	// time (), pra por no srand ()
 #include <string.h>	// para o strlen () [que facilita a vida no FaseDois ()]
 #include <unistd.h>	// para o sleep ()
@@ -53,7 +53,7 @@
 #define HELP_WIDTH 36
 
 #define LINES 24
-#define COLS 80
+
 #define CAMPO_ALTURA 22
 #define CAMPO_LARGURA 47
 #define CAMPO_y0 (LINES/2 - CAMPO_ALTURA/2)
@@ -65,8 +65,12 @@
 #define BOLA_y0 (BARRA_y0 - 1)
 #define BOLA_x0 (COLS/2)
 
+#define FALA_y0 (BARRA_y0 + 2)
+#define FALA_x0 CAMPO_x0
+
 void Help ();	// displays the help
-void Restart ();	// restart the windows, when restarting the game
+void Restart ();	// ask for restarting the game, and does it if needed
+void Pause ();	// pause the game
 void AtualizaHud ();	// acho que você já sabe o que faz, né?
 
 void CriaBlocos ();	// inicializadores
@@ -100,7 +104,6 @@ WINDOW *hud, *campo, *barra, *bola, *chefe, *HP_chefe;
 int vidas;
 int vida_chefe;	// vida do chefe: número de vezes que ainda falta bater nele
 int numblocos;	// número de blocos: 15 vezes o número de linhas de blocos [dificuldade]
-int s;	// escolhas do teclado
 
 char movimento;	// tipo do movimento: X para 45°, L para 31° (anda em L, como no xadrez)
 char h_dir;	// direção horizontal do movimento: E para esquerda e D para direita
@@ -111,6 +114,7 @@ int y_ultim, x_ultim;	// coordenadas do último bloquinho
 int y_chefe, x_chefe;	// coordenadas do chefe
 int dificuldade;	// número de linhas de bloquinhos
 
+int s;	// escolhas do teclado
 int periodo;	// tempim entre os frames: 10~20
 
 
@@ -159,14 +163,14 @@ int main ()
 	AtualizaHud ();								// blocos faltam pra quebrar
 
 	int frame;	// frame em que está: para mover a bolinha e o último bloco com velocidades diferentes
-	while (1) {
+	while (s != 'q') {
 		CriaCampo ();				// novo jogo:
 		CriaBlocos ();
 		CriaBarra ();				// cria as coisinhas
 		CriaBola ();				// em seu devido lugar
 #ifndef FASEDOIS
 		vidas = 5;					// e também seu
-		numblocos = 15 * dificuldade;	// valor inicial
+		numblocos = 15*dificuldade;	// valor inicial
 #endif
 #ifdef FASEDOIS
 		numblocos = 2;
@@ -222,52 +226,24 @@ int main ()
 // diminui a velocidade
 				case '-':
 					if (periodo >= 10 && periodo < 30)
-						periodo  += 2;
+						periodo += 2;
 					break;
 					
 // jogador pausou → barra de espaço
 				case ' ':
-					nodelay (stdscr, FALSE);
-					attron (A_BOLD);
-					mvprintw (CAMPO_y0 + CAMPO_ALTURA, COLS/2 - 2, "PAUSE");
-					do {
-						s = getch ();
-					} while (s != ' ' && s!= 'q' && s != KEY_F(2));
-// jogador despausou, ou pediu novo jogo [explicação afrente], ou mandou sair
-					nodelay (stdscr, TRUE);
-					mvprintw (CAMPO_y0 + CAMPO_ALTURA, COLS/2 - 2, "     ");
-					refresh ();
+					Pause ();
 					if (s != KEY_F(2))
 						break;
 						
 // em caso de novo jogo [F2] (ou perdeu o jogo, ou ganhou o jogo):
 				case KEY_F(2):
-					attron (A_BOLD);
-					mvaddstr (CAMPO_y0 + CAMPO_ALTURA, COLS/2 - 9, "NOVO JOGO? (s/n/q)"); // s: sim; n: não; q: sair (quit)
-					attroff (A_BOLD);
-					nodelay (stdscr, FALSE);
-// pega tecla até uma das opções válidas
-					while (s != 's' && s != 'n' && s != 'q')
-						s = getch ();
-// em caso de fim de jogo (perdendo ou ganhando), escolher 'n' sai do jogo
-					if ((vidas == 0 || vida_chefe == 0) && s == 'n')
-						s = 'q';
-// sim? então exorcisa a bola, barrinha e campo, e volta lá refazer o jogo
-					if (s == 's') {
-						Restart ();
-						s = KEY_F(2);
-					}
-					nodelay (stdscr, TRUE);
-					move (CAMPO_y0 + CAMPO_ALTURA, 0);
-					clrtoeol ();
+					Restart ();
+					break;
 			}
-			usleep (periodo*1e3);
+			movimento == 'X' ? usleep (periodo*1e3) : usleep (periodo*850);
 // próximo frame
 			frame++;
 		}
-
-		if (s == 'q')
-			break;
 	}
 
 	endwin ();
@@ -322,25 +298,80 @@ void Help ()
 }
 
 
-/* reescreve quantas vidas tem e quantos blocos faltam */
-void AtualizaHud ()
+/* Pause the game, waiting for unpause/quit/reset game */
+void Pause ()
 {
-	mvwprintw (hud, 0, COLS - 21, "vidas: %d  blocos: %3.d", vidas, numblocos);
-	wrefresh (hud);
+	WINDOW *pause = newwin (1, COLS, FALA_y0, 0);
+	PANEL *up = new_panel (pause);
+	
+	wattron (pause, A_BOLD);
+	mvwaddstr (pause, 0, COLS/2 - 2, "PAUSE");
+	
+	update_panels ();
+	doupdate ();
+	
+	nodelay (stdscr, FALSE);
+	do {
+		s = getch ();
+	} while (s != ' ' && s != 'q' && s != KEY_F(2));
+// jogador despausou, ou pediu novo jogo [explicação afrente], ou mandou sair
+	nodelay (stdscr, TRUE);
+	werase (pause);
+	wrefresh (pause);
+	del_panel (up);
+	delwin (pause);
 }
 
 
 /* Restart the curses windows, for when restarting the game */
 void Restart ()
 {
-	werase (bola);
-	delwin (bola);
-	werase (barra);
-	delwin (barra);
-	werase (campo);
-	delwin (campo);
-	werase (HP_chefe);
-	delwin (HP_chefe);
+	WINDOW *new = newwin (1, COLS, FALA_y0, 0);
+	PANEL *up = new_panel (new);
+	
+	wattron (new, A_BOLD);
+	mvwaddstr (new, 0, COLS/2 - 9, "NOVO JOGO? (s/n/q)"); // s: sim; n: não; q: sair (quit)
+	
+	update_panels ();
+	doupdate ();
+
+	nodelay (stdscr, FALSE);
+// pega tecla até uma das opções válidas
+	do {
+		s = getch ();
+	} while (s != 's' && s != 'n' && s != 'q');
+// em caso de fim de jogo (perdendo ou ganhando), escolher 'n' sai do jogo
+	if ((vidas == 0 || vida_chefe == 0) && s == 'n')
+		s = 'q';
+// sim? então exorcisa a bola, barrinha e campo, e volta lá refazer o jogo
+	if (s == 's') {
+		werase (bola);
+		delwin (bola);
+		werase (barra);
+		delwin (barra);
+		werase (campo);
+		delwin (campo);
+		werase (HP_chefe);
+		delwin (HP_chefe);
+		
+		standend ();
+		mvaddstr (FALA_y0, COLS/2 - 9, "                  ");
+		s = KEY_F(2);
+	}
+// clear the new game window/panel
+	nodelay (stdscr, TRUE);
+	werase (new);
+	wrefresh (new);
+	del_panel (up);
+	delwin (new);
+}
+
+
+/* reescreve quantas vidas tem e quantos blocos faltam */
+void AtualizaHud ()
+{
+	mvwprintw (hud, 0, COLS - 21, "vidas: %d  blocos: %3.d", vidas, numblocos);
+	wrefresh (hud);
 }
 
 
@@ -1163,21 +1194,19 @@ void FaseDois ()
 		"< 0 0 >",
 		" <===> "
 	};
-
-	int x, y, i;
-
+	
 // apaga o "Finish Him!"
 	mvprintw (BARRA_y0 + 2, COLS/2 - 5, "           ");
 
 // tem uma chance em dificuldade de ganhar uma vida extra [ebaa! xD]
 	if (rand() % dificuldade == 0) {
 		attron (COLOR_PAIR (7));
-		mvprintw (1, COLS - 21, "Extra +1");
+		mvprintw (1, COLS - 14, "+1");
 		refresh ();
 		sleep (2);
 		vidas++;
 		AtualizaHud ();
-		mvprintw (1, COLS - 21, "        ");
+		mvprintw (1, COLS - 14, "  ");
 		refresh ();
 		attroff (COLOR_PAIR (7));
 	}
@@ -1191,7 +1220,7 @@ void FaseDois ()
 
 	attroff (A_BOLD);
 // fogos de artifício, primeiro no começo do campo
-	x = CAMPO_x0 + 4;
+	int x = CAMPO_x0 + 4;
 	FogoArtificio (x);
 // daí no cantinho direito
 	x += 38;
@@ -1200,11 +1229,14 @@ void FaseDois ()
 	x -= 19;
 	FogoArtificio (x);
 
+	int y, i;
 // historinha, frase por frase
 	for (y = 0; y < 2; y++) {
-		mvprintw (CAMPO_y0 + y - 3, (COLS - strlen (historia[y]))/2 + 2, historia[y]);
+		mvprintw (FALA_y0, FALA_x0, historia[y]);
 		refresh ();
 		usleep (25e5);
+		move (FALA_y0, 0);
+		clrtoeol ();
 	}
 
 // cria a janela do chefe e a desenha pausadamente
@@ -1219,14 +1251,9 @@ void FaseDois ()
 			usleep (3e5);
 		}
 
-	for (y = 0; y < 8; y++) {
-// limpa a escrita, pra próxima ficar bonita
-		move (CAMPO_y0 - 3, 0);
-		clrtoeol ();
-		move (CAMPO_y0 - 2, 0);
-		clrtoeol ();
 // e mais linhas de fala do chefão
-		mvprintw (CAMPO_y0 - 3, (COLS - strlen (falas[y]))/2 + 2, falas[y]);
+	for (y = 0; y < 8; y++) {
+		mvprintw (FALA_y0, FALA_x0, falas[y]);
 		refresh ();
 		usleep (25e5);
 // ó a maldição!
@@ -1242,15 +1269,13 @@ void FaseDois ()
 			wrefresh (barra);
 			usleep (3e5);
 		}
-		y++;
-		mvprintw (CAMPO_y0 - 2, (COLS - strlen (falas[y]))/2 + 1, falas[y]);
-		refresh ();
-		usleep (25e5);
+		move (FALA_y0, 0);
+		clrtoeol ();
 	}
 
 
 	attron (A_BOLD);
-	mvprintw (BARRA_y0 + 2, COLS/2 - 4, "Kill him!");
+	mvprintw (FALA_y0, COLS/2 - 4, "Kill him!");
 	refresh ();
 
 // bolinha no começo
@@ -1289,10 +1314,10 @@ void Ganhou ()
 	
 	attron (A_BOLD);
 	for (i = 0; i < 4; i++) {
-		mvprintw (BARRA_y0 + 2, COLS/2 - 5, "VOCÊ GANHOU!");
+		mvprintw (FALA_y0, COLS/2 - 5, "VOCÊ GANHOU!");
 		refresh ();
 		usleep (6e5);
-		mvprintw (BARRA_y0 + 2, COLS/2 - 5, "              ");
+		mvprintw (FALA_y0, COLS/2 - 5, "              ");
 		refresh ();
 		usleep (6e5);
 	}
