@@ -42,22 +42,31 @@
 
 
 #include <ncurses.h>
+#include <panel.h>
 #include <stdlib.h>	// para o rand () e srand ()
 #include <time.h>	// time (), pra por no srand ()
 #include <string.h>	// para o strlen () [que facilita a vida no FaseDois ()]
 #include <unistd.h>	// para o sleep ()
 #include <locale.h>	// pra chars doidos [ê, ç]
 
+#define BGhelp 10
+#define HELP_WIDTH 36
+
+#define LINES 24
+#define COLS 80
 #define CAMPO_ALTURA 22
 #define CAMPO_LARGURA 47
-#define CAMPO_y0 (LINES/2 - CAMPO_ALTURA/2 + 1)
+#define CAMPO_y0 (LINES/2 - CAMPO_ALTURA/2)
 #define CAMPO_x0 (COLS/2 - CAMPO_LARGURA/2)
-#define BARRA_y0 (LINES/2 + CAMPO_ALTURA/2 - 1)
+
+#define BARRA_y0 (LINES/2 + CAMPO_ALTURA/2 - 2)
 #define BARRA_x0 (COLS/2 - 1)
+
 #define BOLA_y0 (BARRA_y0 - 1)
 #define BOLA_x0 (COLS/2)
 
-
+void Help ();	// displays the help
+void Restart ();	// restart the windows, when restarting the game
 void AtualizaHud ();	// acho que você já sabe o que faz, né?
 
 void CriaBlocos ();	// inicializadores
@@ -105,19 +114,9 @@ int dificuldade;	// número de linhas de bloquinhos
 int periodo;	// tempim entre os frames: 10~20
 
 
+
 int main ()
 {
-	int frame;	// frame em que está: para mover a bolinha e o último bloco com velocidades diferentes
-	char *teclas1[] = {
-		"Barra de espaço ", "para pausar, ",
-		"'q' ", "para sair, ",
-		"F2 ", "para novo jogo"
-	}, *teclas2[] = {
-		"Setas ", "ou ",
-		"'a' ", "e ", "'d' ", "para mover a barra, ",
-		"'+' ", "ou ", "'=' ", "para aumentar a velocidade, ",
-		"'-' ", "para diminuir a velocidade"
-	};
 	int i;
 
 	setlocale (LC_ALL, "");	// para aparecer os chars doidos
@@ -149,34 +148,17 @@ int main ()
 	init_pair (7, COLOR_GREEN, COLOR_BLACK);	//
 	init_pair (8, COLOR_WHITE, COLOR_BLACK);	// e uma pra barrinha e pra bolinha [e pra bloco também, uai]
 	init_pair (9, COLOR_BLACK, COLOR_BLACK);	// e mais uma para os bloquinhos [wow! que tanto!]
+	init_pair (BGhelp, COLOR_WHITE, COLOR_BLUE);	// help color
 	bkgd (COLOR_PAIR (8));
 	
 	hud = subwin (stdscr, 1, 0, 0, 0);			// cria o HUD
 	wbkgd (hud, COLOR_PAIR (1));				// com o nome do
 	wattron (hud, A_BOLD);						// jogo e quantas
 	mvwprintw (hud, 0, COLS/2 - 4, "ARKURSES");	// vidas tem e quantos
+	mvwaddstr (hud, 0, 0, "'?': Help");
 	AtualizaHud ();								// blocos faltam pra quebrar
 
-
-// mostra teclas reservadas e suas funções
-	move (LINES - 2, 0);
-	for (i = 0; i < 6; i++) {
-		attron (A_BOLD);
-		addstr (teclas1[i]);
-		i++;
-		attroff (A_BOLD);
-		addstr (teclas1[i]);
-	}
-	move (LINES - 1, 0);
-	for (i = 0; i < 12; i++) {
-		attron (A_BOLD);
-		addstr (teclas2[i]);
-		i++;
-		attroff (A_BOLD);
-		addstr (teclas2[i]);
-	}
-
-
+	int frame;	// frame em que está: para mover a bolinha e o último bloco com velocidades diferentes
 	while (1) {
 		CriaCampo ();				// novo jogo:
 		CriaBlocos ();
@@ -184,7 +166,7 @@ int main ()
 		CriaBola ();				// em seu devido lugar
 #ifndef FASEDOIS
 		vidas = 5;					// e também seu
-		numblocos = 15*dificuldade;	// valor inicial
+		numblocos = 15 * dificuldade;	// valor inicial
 #endif
 #ifdef FASEDOIS
 		numblocos = 2;
@@ -221,12 +203,17 @@ int main ()
 				MoveBolinha ();
 
 			switch (s) {
+				case '?':
+					Help ();
+					break;
+					
 				case KEY_LEFT: case 'a':
 					MoveBarraEsq ();
 					break;
 				case KEY_RIGHT: case 'd':
 					MoveBarraDir ();
 					break;
+					
 // aumenta a velocidade ['=' para quem usa notebook sem teclado numérico e não quer segurar o shift, que nem eu]
 				case '+': case '=':
 					if (periodo > 10 && periodo <= 30)
@@ -237,24 +224,26 @@ int main ()
 					if (periodo >= 10 && periodo < 30)
 						periodo  += 2;
 					break;
+					
 // jogador pausou → barra de espaço
 				case ' ':
 					nodelay (stdscr, FALSE);
 					attron (A_BOLD);
-					mvprintw (CAMPO_y0 - 1, COLS/2 - 2, "PAUSE");
+					mvprintw (CAMPO_y0 + CAMPO_ALTURA, COLS/2 - 2, "PAUSE");
 					do {
 						s = getch ();
 					} while (s != ' ' && s!= 'q' && s != KEY_F(2));
 // jogador despausou, ou pediu novo jogo [explicação afrente], ou mandou sair
 					nodelay (stdscr, TRUE);
-					mvprintw (CAMPO_y0 - 1, COLS/2 - 2, "     ");
+					mvprintw (CAMPO_y0 + CAMPO_ALTURA, COLS/2 - 2, "     ");
 					refresh ();
 					if (s != KEY_F(2))
 						break;
+						
 // em caso de novo jogo [F2] (ou perdeu o jogo, ou ganhou o jogo):
 				case KEY_F(2):
 					attron (A_BOLD);
-					mvaddstr (BARRA_y0 +3, COLS/2 - 9, "NOVO JOGO? (s/n/q)"); // s: sim; n: não; q: sair (quit)
+					mvaddstr (CAMPO_y0 + CAMPO_ALTURA, COLS/2 - 9, "NOVO JOGO? (s/n/q)"); // s: sim; n: não; q: sair (quit)
 					attroff (A_BOLD);
 					nodelay (stdscr, FALSE);
 // pega tecla até uma das opções válidas
@@ -265,20 +254,11 @@ int main ()
 						s = 'q';
 // sim? então exorcisa a bola, barrinha e campo, e volta lá refazer o jogo
 					if (s == 's') {
-						werase (bola);
-						delwin (bola);
-						werase (barra);
-						delwin (barra);
-						werase (campo);
-						delwin (campo);
-						werase (HP_chefe);
-						delwin (HP_chefe);
+						Restart ();
 						s = KEY_F(2);
 					}
 					nodelay (stdscr, TRUE);
-					move (BARRA_y0 + 3, 0);
-					clrtoeol ();
-					move (BARRA_y0 + 4, 0);
+					move (CAMPO_y0 + CAMPO_ALTURA, 0);
 					clrtoeol ();
 			}
 			usleep (periodo*1e3);
@@ -297,6 +277,50 @@ int main ()
 
 
 
+/* Displays the help (in a created window and panel, for going back to the normal field after) */
+void Help ()
+{
+	WINDOW *help;
+	PANEL *up;
+
+	help = newwin (8, HELP_WIDTH, 1, 0);
+	up = new_panel (help);
+	update_panels ();
+	doupdate ();
+
+	box (help, 0, 0);
+	wbkgd (help, COLOR_PAIR (BGhelp));
+	wrefresh (help);
+	mvwaddstr (help, 0, HELP_WIDTH/2 - 2, "HELP");
+	wattron (help, A_BOLD);
+	mvwaddstr (help, 1, 1, "Arrow Keys or A,D:");
+	mvwaddstr (help, 2, 1, "'-':");
+	mvwaddstr (help, 3, 1, "'+' or '=':");
+	mvwaddstr (help, 4, 1, "Space:");
+	mvwaddstr (help, 5, 1, "F2:");
+	mvwaddstr (help, 6, 1, "'q':");
+
+	wattrset (help, COLOR_PAIR (BGhelp));
+	mvwaddstr (help, 1, 20, "move left/right");
+	mvwaddstr (help, 2, 6, "slow down");
+	mvwaddstr (help, 3, 13, "speed up");
+	mvwaddstr (help, 4, 8, "pause");
+	mvwaddstr (help, 5, 5, "reset game");
+	mvwaddstr (help, 6, 6, "quit");
+
+// writes the help window, wait for some key to be pressed and delete the help window
+	wrefresh (help);
+	nodelay (stdscr, FALSE);
+	getch ();
+	nodelay (stdscr, TRUE);
+
+	wbkgd (help, COLOR_PAIR (0));
+	werase (help);
+	wrefresh (help);
+	del_panel (up);
+	delwin (help);
+}
+
 
 /* reescreve quantas vidas tem e quantos blocos faltam */
 void AtualizaHud ()
@@ -305,6 +329,21 @@ void AtualizaHud ()
 	wrefresh (hud);
 }
 
+
+/* Restart the curses windows, for when restarting the game */
+void Restart ()
+{
+	werase (bola);
+	delwin (bola);
+	werase (barra);
+	delwin (barra);
+	werase (campo);
+	delwin (campo);
+	werase (HP_chefe);
+	delwin (HP_chefe);
+}
+
+
 /* Cria o campo, com sua caixinha bonitinha */
 void CriaCampo ()
 {
@@ -312,6 +351,7 @@ void CriaCampo ()
 	wattron (stdscr, COLOR_PAIR (8));
 	box (campo, 0, 0);
 }
+
 
 /* Desenha os blocos na tela, na posição certa, uma linha de cada cor */
 void CriaBlocos ()
@@ -330,6 +370,7 @@ void CriaBlocos ()
 	wrefresh (campo);
 }
 
+
 /* Cria a barra, na posição de início */
 void CriaBarra ()
 {
@@ -338,6 +379,7 @@ void CriaBarra ()
 	wrefresh (barra);
 }
 
+
 /* Cria a bolinha, na posição de início */
 void CriaBola ()
 {
@@ -345,6 +387,7 @@ void CriaBola ()
 	mvwprintw (bola, 0, 0, "O");
 	wrefresh (bola);
 }
+
 
 /* Move a barrinha uma casa pra esquerda */
 void MoveBarraEsq ()
@@ -365,6 +408,7 @@ void MoveBarraEsq ()
 	}
 }
 
+
 /* Move a barrinha uma casa pra direita */
 void MoveBarraDir ()
 {
@@ -383,6 +427,7 @@ void MoveBarraDir ()
 		}
 	}
 }
+
 
 /* Move a bolinha, levando em consideração o tipo do movimento */
 void MoveBolinha ()
@@ -414,6 +459,7 @@ void MoveBolinha ()
 		case 'L': AndaL (y, x); break;
 	}
 }
+
 
 /* Anda em 45°: 1×1 */
 void AndaX (int y, int x)
@@ -614,6 +660,7 @@ void AndaX (int y, int x)
 				break;
 		}
 }
+
 
 /* Anda em L: 1×2 → primeiro para o lado, e então diagonal */
 void AndaL (int y, int x)
@@ -860,6 +907,7 @@ void AndaL (int y, int x)
 	}
 }
 
+
 /* Move o último bloquinho, quando só faltar ele */
 void MoveUltimo ()
 {
@@ -897,6 +945,7 @@ void MoveUltimo ()
 	}
 }
 
+
 /* Move o chefe da 2ª parte do jogo */
 void MoveChefe ()
 {
@@ -931,6 +980,7 @@ void MoveChefe ()
 	wrefresh (campo);
 }
 
+
 /* prevê colisão com a barra */
 char AlgoNoCaminhoBarra (int y, int x)
 {
@@ -943,6 +993,7 @@ char AlgoNoCaminhoBarra (int y, int x)
 
 	return (mvwinch (barra, y, x));
 }
+
 
 /* prevê colisão com a bolinha [a partir de coordenadas do campo] */
 char AlgoNoCaminhoBola (int y, int x)
@@ -960,6 +1011,7 @@ char AlgoNoCaminhoBola (int y, int x)
 	return (mvwinch (bola, y, x));
 }
 
+
 /* prevê colisão com os bloquinhos */
 char AlgoNoCaminhoCampo (int y, int x)
 {
@@ -969,6 +1021,7 @@ char AlgoNoCaminhoCampo (int y, int x)
 
 	return (mvwinch (campo, y, x));
 }
+
 
 /* destrói o bloquinho, quando acertado */
 void Quebra (char obst, int y, int x)
@@ -1023,6 +1076,7 @@ void Quebra (char obst, int y, int x)
 		FaseDois ();
 }
 
+
 /* morreu, diminui uma vida; não tem mais, recomeça o jogo [se quiser, claro] */
 void Morreu ()
 {
@@ -1060,6 +1114,7 @@ void Morreu ()
 	}
 }
 
+
 /* Solta um fogo de artifício, pra próxima funçãozinha aí =] */
 void FogoArtificio (int x)
 {
@@ -1072,16 +1127,17 @@ void FogoArtificio (int x)
 		mvaddch (y, x, ' ');
 		refresh ();
 	}
-	mvaddstr (y, x - 1, "\\|/");
+	mvaddstr (y, x - 1,     "\\|/");
 	mvaddstr (y + 1, x - 2, "--O--");
-	mvaddstr (y + 2, x - 1, "/|\\");
+	mvaddstr (y + 2, x - 1,  "/|\\");
 	refresh ();
 	usleep (4e5);
-	mvaddstr (y, x - 1, "   ");
+	mvaddstr (y, x - 1,      "   ");
 	mvaddstr (y + 1, x - 2, "     ");
-	mvaddstr (y + 2, x - 1, "   ");
+	mvaddstr (y + 2, x - 1,  "   ");
 	refresh ();
 }
+
 
 /* Passou do começo [os bloco], historinha, e chefe "VWAHAHAHAHA" */
 void FaseDois ()
@@ -1225,6 +1281,7 @@ void FaseDois ()
 	periodo = 9;
 }
 
+
 /* Bom jogo, jovem miriápode; tentarás outra vez? */
 void Ganhou ()
 {
@@ -1242,6 +1299,7 @@ void Ganhou ()
 	attroff (A_BOLD);
 	s = KEY_F(2);
 }
+
 
 /* Vê se acertou o chefão, e se sim: PORRADA NELE! */
 int BateChefe (int y, int x)
