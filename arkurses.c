@@ -1,4 +1,5 @@
-//#define FASEDOIS
+#define FASEDOIS
+#define PULAHIST
 
 /*
  *						Arkanoid versus Ncurses: ARKURSES
@@ -43,8 +44,7 @@
 #include <panel.h>
 #include <stdlib.h>	// para o rand ()/srand ()
 #include <time.h>	// time (), pra por no srand ()
-#include <string.h>	// para o strlen () [que facilita a vida no FaseDois ()]
-#include <unistd.h>	// para o sleep ()
+#include <ctype.h>
 #include <locale.h>	// pra chars doidos [ê, ç]
 
 #define BGhelp 10
@@ -56,6 +56,7 @@
 #define CAMPO_LARGURA 47
 #define CAMPO_y0 (LINES/2 - CAMPO_ALTURA/2)
 #define CAMPO_x0 (COLS/2 - CAMPO_LARGURA/2)
+#define BLOCO_y0 (CAMPO_y0 + 3)
 
 #define BARRA_y0 (LINES/2 + CAMPO_ALTURA/2 - 2)
 #define BARRA_x0 (COLS/2 - 1)
@@ -110,7 +111,7 @@ char l_mov;	// movimento em L: alterna entre 'H' para horizontal e 'D' para diag
 
 int y_ultim, x_ultim;	// coordenadas do último bloquinho
 int y_chefe, x_chefe;	// coordenadas do chefe
-int dificuldade;	// número de linhas de bloquinhos
+char dificuldade;	// número de linhas de bloquinhos
 
 int s;	// escolhas do teclado
 int periodo;	// tempim entre os frames: 10~20
@@ -194,7 +195,7 @@ int main ()
 		nodelay (stdscr, TRUE);	// não espera o getch(), pra jogar mesmo
 
 		while (s != KEY_F(2) && s != 'q') {
-			if ((s = getch ()))
+			if ((s = tolower (getch ())))
 				flushinp ();
 			
 // último bloquinho: falas e ele começa a mexer
@@ -243,7 +244,7 @@ int main ()
 					Restart ();
 					break;
 			}
-			movimento == 'X' ? usleep (periodo*1e3) : usleep (periodo*870);
+			movimento == 'X' ? napms (periodo) : napms (periodo*0.89);
 // próximo frame
 			frame++;
 		}
@@ -315,7 +316,7 @@ void Pause ()
 	
 	nodelay (stdscr, FALSE);
 	do {
-		s = getch ();
+		s = tolower (getch ());
 	} while (s != ' ' && s != 'q' && s != KEY_F(2));
 // jogador despausou, ou pediu novo jogo [taí embaixo], ou mandou sair
 	nodelay (stdscr, TRUE);
@@ -341,7 +342,7 @@ void Restart ()
 	nodelay (stdscr, FALSE);
 // pega tecla até uma das opções válidas
 	do {
-		s = getch ();
+		s = tolower (getch ());
 	} while (s != 'y' && s != 'n' && s != 'q');
 // em caso de fim de jogo (perdendo ou ganhando), escolher 'n' sai do jogo
 	if ((vidas == 0 || vida_chefe == 0) && s == 'n')
@@ -390,14 +391,14 @@ void CriaCampo ()
 /* Desenha os blocos na tela, na posição certa, uma linha de cada cor */
 void CriaBlocos ()
 {
-	int cor=2, x, y;
+	int cor = 2, x, y;
 	
 	wattron (campo, A_BOLD);
-	for (y=0; y < dificuldade; y++) {
+	for (y = 0; y < dificuldade; y++) {
 		wattron (campo, COLOR_PAIR (cor));
 // desenha os 15 blocos de 3 chars, no formato especificado
-		for (x=0; x < 15; x++)
-			mvwaddstr (campo, 3 + y, 1 + (3*x), "<=>");
+		for (x = 0; x < 15; x++)
+			mvwaddstr (campo, y + 3, (3*x) + 1, "<=>");
 // muda a cor pra próxima linha
 		cor++;
 	}
@@ -971,16 +972,17 @@ void MoveChefe ()
 		"< 0 0 >",
 		" <===> "
 	};
-	int y_bola, x_bola;
-	int i;
-	
-	getbegyx (bola, y_bola, x_bola);
 
 // desdesenha-o
+	int i;
 	for (i = 0; i < 3; i++) {
 		mvwaddstr (campo, y_chefe + i, x_chefe, "       ");
 		wrefresh (campo);
 	}
+	
+// onde está a bolinha?
+	int y_bola, x_bola;
+	getbegyx (bola, y_bola, x_bola);
 
 // se a bolinha está numa linha do chefão, não move pra lá
 	if (y_bola <= (y_chefe + CAMPO_y0) + 2)
@@ -1065,9 +1067,9 @@ void Quebra (char obst, int y, int x)
 		attron (A_BOLD);
 		mvaddstr (BARRA_y0 + 2, COLS/2 - 5, "Finish him!");
 		refresh ();
-		sleep (1);
+		napms (1000);
 // onde está o último bloquinho?
-		for (y_ultim = CAMPO_y0 + 3; y_ultim < CAMPO_y0 + 3 + dificuldade; y_ultim++) {
+		for (y_ultim = BLOCO_y0; y_ultim < BLOCO_y0 + dificuldade; y_ultim++) {
 			for (x_ultim = CAMPO_x0 + 1; x_ultim < CAMPO_x0 + CAMPO_LARGURA - 3; x_ultim += 3)
 				if (AlgoNoCaminhoCampo (y_ultim, x_ultim) == '<')
 					break;
@@ -1077,7 +1079,7 @@ void Quebra (char obst, int y, int x)
 		
 		mvaddstr (y_ultim - 1, x_ultim, "NO!");
 		refresh ();
-		sleep (1);
+		napms (1000);
 		mvaddstr (y_ultim - 1, x_ultim, "   ");
 		refresh ();
 
@@ -1112,19 +1114,19 @@ void Morreu ()
 // dá aquela piscadinha vermelha na bolinha, pra avisar que realmente morreu
 	wbkgd (bola, COLOR_PAIR (3));
 	wrefresh (bola);
-	usleep (3e5);
+	napms (300);
 	wbkgd (bola, COLOR_PAIR (8));
 	wrefresh (bola);
 
 	if (vidas == 0) {
 		attron (A_BOLD);
-		for ( ; i<4; i++) {
+		for ( ; i < 4; i++) {
 			mvaddstr (BARRA_y0 + 2, COLS/2 - 5, "FIM DE JOGO");
 			refresh ();
-			usleep (6e5);
+			napms (600);
 			mvaddstr (BARRA_y0 + 2, COLS/2 - 5, "           ");
 			refresh ();
-			usleep (6e5);
+			napms (600);
 		}
 		attroff (A_BOLD);
 		s = KEY_F(2);
@@ -1137,18 +1139,19 @@ void FogoArtificio (int x)
 {
 	int y;
 
-	for (y = BARRA_y0 - 1; y >= CAMPO_y0 + 3; y--) {
-		mvaddch (y, x, '0');
+	for (y = BARRA_y0 - 1; y >= BLOCO_y0; y--) {
+		mvaddch (y, x, '|');
 		refresh ();
-		usleep (1e5);
+		napms (100);
 		mvaddch (y, x, ' ');
 		refresh ();
 	}
+	
 	mvaddstr (y, x - 1,     "\\|/");
 	mvaddstr (y + 1, x - 2, "--O--");
 	mvaddstr (y + 2, x - 1,  "/|\\");
 	refresh ();
-	usleep (4e5);
+	napms (400);
 	mvaddstr (y, x - 1,      "   ");
 	mvaddstr (y + 1, x - 2, "     ");
 	mvaddstr (y + 2, x - 1,  "   ");
@@ -1189,7 +1192,7 @@ void FaseDois ()
 		attron (COLOR_PAIR (7));
 		mvaddstr (1, COLS - 14, "+1");
 		refresh ();
-		sleep (2);
+		napms (2000);
 		vidas++;
 		AtualizaHud ();
 		mvaddstr (1, COLS - 14, "  ");
@@ -1203,10 +1206,13 @@ void FaseDois ()
 	mvwin (bola, BOLA_y0, BOLA_x0);
 	v_dir = 'C';
 	h_dir = 'D'; 
+	
 
 	attroff (A_BOLD);
 // fogos de artifício, primeiro no começo do campo
 	int x = CAMPO_x0 + 4;
+	int y;
+#ifndef PULAHIST
 	FogoArtificio (x);
 // daí no cantinho direito
 	x += 38;
@@ -1215,16 +1221,15 @@ void FaseDois ()
 	x -= 19;
 	FogoArtificio (x);
 
-	int y, i;
 // historinha, frase por frase
 	for (y = 0; y < 2; y++) {
 		mvaddstr (FALA_y0, FALA_x0, historia[y]);
 		refresh ();
-		usleep (25e5);
+		napms (2500);
 		move (FALA_y0, 0);
 		clrtoeol ();
 	}
-
+#endif
 // cria a janela do chefe e a desenha pausadamente
 	y_chefe = 1;
 	x_chefe = (x - CAMPO_x0) - 2;
@@ -1234,31 +1239,32 @@ void FaseDois ()
 		for (x = 0; x < 7; x++) {
 			mvwaddch (campo, y_chefe + y, x_chefe + x, cara[y][x]);
 			wrefresh (campo);
-			usleep (3e5);
+			napms (300);
 		}
-
+#ifndef PULAHIST
 // e mais linhas de fala do chefão
 	for (y = 0; y < 8; y++) {
 		mvaddstr (FALA_y0, FALA_x0, falas[y]);
 		refresh ();
-		usleep (25e5);
+		napms (2500);
 // ó a maldição!
 		if (y == 6) {
+			int i;
 			for (i = 0; i < 3; i++) {
 				for (x = 2; x < 10; x++) {
 					wbkgd (barra, COLOR_PAIR (x));
 					wrefresh (barra);
-					usleep (1e5);
+					napms (100);
 				}
 			}
 			wbkgd (barra, COLOR_PAIR (8));
 			wrefresh (barra);
-			usleep (3e5);
+			napms (300);
 		}
 		move (FALA_y0, 0);
 		clrtoeol ();
 	}
-
+#endif
 
 	attron (A_BOLD);
 	mvaddstr (FALA_y0, COLS/2 - 4, "Kill him!");
@@ -1274,14 +1280,14 @@ void FaseDois ()
 	wattron (HP_chefe, COLOR_PAIR (7));
 	mvwaddstr (HP_chefe, 0, 0, "/\\");
 	mvwaddstr (HP_chefe, 1, 0, "\\/");
-	usleep (3e5);
+	napms (500);
 	wrefresh (HP_chefe);
 	for (vida_chefe = 0; vida_chefe < CAMPO_ALTURA - 2; ) {
 		vida_chefe++;
 		mvwaddstr (HP_chefe, vida_chefe, 0, "||");
 		mvwaddstr (HP_chefe, vida_chefe + 1, 0, "\\/");
 		wrefresh (HP_chefe);
-		usleep (2e5);
+		napms (150);
 	}
 // limpa as escritinhas e volta pro jogo
 	for (y = 0; y < 2; y++) {
@@ -1302,10 +1308,10 @@ void Ganhou ()
 	for (i = 0; i < 4; i++) {
 		mvaddstr (FALA_y0, COLS/2 - 5, "VOCÊ GANHOU!");
 		refresh ();
-		usleep (6e5);
+		napms (600);
 		mvaddstr (FALA_y0, COLS/2 - 5, "              ");
 		refresh ();
-		usleep (6e5);
+		napms (600);
 	}
 	attroff (A_BOLD);
 	s = KEY_F(2);
