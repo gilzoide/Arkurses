@@ -27,7 +27,7 @@
  *			diagonal em qualquer sentido horizontal, com bloco em geral: inverte direção vertical;
  *
  *	Algumas considerações:
- *		-Compilando no gcc? Não esqueça de adicionar a flag "-lncurses" [senão não funfa];
+ *		-Compilando no gcc? Não esqueça de adicionar a flag "-lpanel -lncurses" [senão não funfa];
  *		-Sim, esse bagulho roda nos terminais virtuais [tty] [é até melhor de jogar];
  *		-Esse jogo buga bastante;
  *		-Não existe tal coisa como física;
@@ -126,23 +126,10 @@ int main ()
 	setlocale (LC_ALL, "");	// para aparecer os chars doidos
 	srand (time (NULL));
 
-#ifndef FASEDOIS
-	printf ("             ARKURSES\n");
-	printf ("Selecione a dificuldade (1~8): ");
-	while (dificuldade < 1 || dificuldade > 8)
-		scanf ("%d", &dificuldade);
-#endif
-#ifdef FASEDOIS
-	dificuldade = 1;
-#endif
-
 // inicializações do curses
 	initscr ();	// inicia o modo curses
 	start_color (); // cores ;]
-	cbreak (); // não espera a tecla 'enter'
-	noecho (); // não escreve as teclas apertadas, para interatividades
 	keypad (stdscr, TRUE); // permite uso de 'F's e setinhas
-	curs_set (0); // esconde o cursor
 	init_pair (1, COLOR_WHITE, COLOR_GREEN);	// cor do HUD
 	init_pair (2, COLOR_CYAN, COLOR_BLACK);		// outras
 	init_pair (3, COLOR_RED, COLOR_BLACK);		// cores;
@@ -158,9 +145,27 @@ int main ()
 	hud = subwin (stdscr, 1, 0, 0, 0);			// cria o HUD
 	wbkgd (hud, COLOR_PAIR (1));				// com o nome do
 	wattron (hud, A_BOLD);						// jogo e quantas
-	mvwprintw (hud, 0, COLS/2 - 4, "ARKURSES");	// vidas tem e quantos
+	mvwaddstr (hud, 0, COLS/2 - 4, "ARKURSES");	// vidas tem e quantos
+	wrefresh (hud);
+
+#ifndef FASEDOIS
+	mvaddstr (6, 0, "Dificulty [1~8] >");
+	do {
+		mvscanw (6, 18, "%d", &dificuldade);
+	} while (dificuldade < 1 || dificuldade > 8);
+	move (6, 0);
+	clrtoeol ();
+#endif
+#ifdef FASEDOIS
+	dificuldade = 1;
+#endif
+
+	cbreak (); // não espera a tecla 'enter'
+	noecho (); // não escreve as teclas apertadas, para interatividades
+	curs_set (0); // esconde o cursor
+	
 	mvwaddstr (hud, 0, 0, "'?': Help");
-	AtualizaHud ();								// blocos faltam pra quebrar
+	AtualizaHud ();
 
 	int frame;	// frame em que está: para mover a bolinha e o último bloco com velocidades diferentes
 	while (s != 'q') {
@@ -240,7 +245,7 @@ int main ()
 					Restart ();
 					break;
 			}
-			movimento == 'X' ? usleep (periodo*1e3) : usleep (periodo*850);
+			movimento == 'X' ? usleep (periodo*1e3) : usleep (periodo*870);
 // próximo frame
 			frame++;
 		}
@@ -330,7 +335,7 @@ void Restart ()
 	PANEL *up = new_panel (new);
 	
 	wattron (new, A_BOLD);
-	mvwaddstr (new, 0, COLS/2 - 9, "NOVO JOGO? (s/n/q)"); // s: sim; n: não; q: sair (quit)
+	mvwaddstr (new, 0, COLS/2 - 9, "NOVO JOGO? (y/n/q)"); // y: sim; n: não; q: sair (quit)
 	
 	update_panels ();
 	doupdate ();
@@ -339,12 +344,12 @@ void Restart ()
 // pega tecla até uma das opções válidas
 	do {
 		s = getch ();
-	} while (s != 's' && s != 'n' && s != 'q');
+	} while (s != 'y' && s != 'n' && s != 'q');
 // em caso de fim de jogo (perdendo ou ganhando), escolher 'n' sai do jogo
 	if ((vidas == 0 || vida_chefe == 0) && s == 'n')
 		s = 'q';
 // sim? então exorcisa a bola, barrinha e campo, e volta lá refazer o jogo
-	if (s == 's') {
+	if (s == 'y') {
 		werase (bola);
 		delwin (bola);
 		werase (barra);
@@ -394,7 +399,7 @@ void CriaBlocos ()
 		wattron (campo, COLOR_PAIR (cor));
 // desenha os 15 blocos de 3 chars, no formato especificado
 		for (x=0; x < 15; x++)
-			mvwprintw (campo, 3+y, 1+(3*x), "<=>");
+			mvwaddstr (campo, 3 + y, 1 + (3*x), "<=>");
 // muda a cor pra próxima linha
 		cor++;
 	}
@@ -406,7 +411,7 @@ void CriaBlocos ()
 void CriaBarra ()
 {
 	barra = subwin (stdscr, 1, 4, BARRA_y0, BARRA_x0);
-	mvwprintw (barra, 0, 0, "<xx>");
+	mvwaddstr (barra, 0, 0, "<xx>");
 	wrefresh (barra);
 }
 
@@ -415,7 +420,7 @@ void CriaBarra ()
 void CriaBola ()
 {
 	bola = subwin (stdscr, 1, 1, BOLA_y0, BOLA_x0);
-	mvwprintw (bola, 0, 0, "O");
+	mvwaddch (bola, 0, 0, 'O');
 	wrefresh (bola);
 }
 
@@ -433,7 +438,7 @@ void MoveBarraEsq ()
 			werase (barra);					// apaga a barra
 			wrefresh (barra);
 			mvwin (barra, y, x);			// move-a
-			mvwprintw (barra, 0, 0, "<xx>");// e a reescreve
+			mvwaddstr (barra, 0, 0, "<xx>");// e a reescreve
 			wrefresh (barra);
 		}
 	}
@@ -453,7 +458,7 @@ void MoveBarraDir ()
 			werase (barra);					// apaga a barra
 			wrefresh (barra);
 			mvwin (barra, y, x);			// move-a
-			mvwprintw (barra, 0, 0, "<xx>");// e a reescreve
+			mvwaddstr (barra, 0, 0, "<xx>");// e a reescreve
 			wrefresh (barra);
 		}
 	}
@@ -504,10 +509,9 @@ void AndaX (int y, int x)
 				y--; x++;
 
 // se estiver na 2ª fase, vê se bate com o chefão, daí não destroi bloquinho
-				if (vida_chefe > 0) {
-					if (BateChefe (y, x))
-						return;
-				}
+				if (vida_chefe > 0 && BateChefe (y, x))
+					return;
+
 // prevê colisão com bloquinhos [se aplica a todos os movimentos]
 				obst = AlgoNoCaminhoCampo (y, x);
 				if (obst == '=' || obst == '>') {
@@ -541,10 +545,8 @@ void AndaX (int y, int x)
 			case 'E':
 				y--; x--;
 
-				if (vida_chefe > 0) {
-					if (BateChefe (y, x))
-						return;
-				}
+				if (vida_chefe > 0 && BateChefe (y, x))
+					return;
 
 				obst = AlgoNoCaminhoCampo (y, x);
 				if (obst == '=' || obst == '<') {
@@ -599,10 +601,8 @@ void AndaX (int y, int x)
 					}
 				}
 
-				if (vida_chefe > 0) {
-					if (BateChefe (y, x))
-						return;
-				}
+				if (vida_chefe > 0 && BateChefe (y, x))
+					return;
 
 // bate em bloquinho?
 				obst = AlgoNoCaminhoCampo (y, x);
@@ -636,29 +636,27 @@ void AndaX (int y, int x)
 				break;
 			case 'E':
 				y++; x--;
-					if (y == BARRA_y0) {
-						obst = AlgoNoCaminhoBarra (y, x);
-						if (obst == 'x') {
-							v_dir = 'C';
-							return;
-						}
-						else if (obst == '<') {
-							v_dir = 'C';
-							movimento = 'L';
-							return;
-						}
-						else if (obst == '>') {
-							v_dir = 'C';
-							h_dir = 'D';
-							movimento = 'L';
-							return;
-						}
-					}
-
-				if (vida_chefe > 0) {
-					if (BateChefe (y, x))
+				if (y == BARRA_y0) {
+					obst = AlgoNoCaminhoBarra (y, x);
+					if (obst == 'x') {
+						v_dir = 'C';
 						return;
+					}
+					else if (obst == '<') {
+						v_dir = 'C';
+						movimento = 'L';
+						return;
+					}
+					else if (obst == '>') {
+						v_dir = 'C';
+						h_dir = 'D';
+						movimento = 'L';
+						return;
+					}
 				}
+
+				if (vida_chefe > 0 && BateChefe (y, x))
+					return;
 
 				obst = AlgoNoCaminhoCampo (y, x);
 				if (obst == '<' || obst == '=') {
@@ -704,10 +702,8 @@ void AndaL (int y, int x)
 				case 'D':
 					x++;
 					
-					if (vida_chefe > 0) {
-						if (BateChefe (y, x))
-							return;
-					}
+					if (vida_chefe > 0 && BateChefe (y, x))
+						return;
 
 					obst = AlgoNoCaminhoCampo (y, x);
 					if (obst == '<') {
@@ -725,10 +721,8 @@ void AndaL (int y, int x)
 				case 'E':
 					x--;
 
-					if (vida_chefe > 0) {
-						if (BateChefe (y, x))
-							return;
-					}
+					if (vida_chefe > 0 && BateChefe (y, x))
+						return;
 
 					obst = AlgoNoCaminhoCampo (y, x);
 					if (obst == '>') {
@@ -753,10 +747,8 @@ void AndaL (int y, int x)
 				case 'D':
 					y--; x++;
 
-					if (vida_chefe > 0) {
-						if (BateChefe (y, x))
-							return;
-					}
+					if (vida_chefe > 0 && BateChefe (y, x))
+						return;
 
 					obst = AlgoNoCaminhoCampo (y, x);
 					if (obst == '=' || obst == '>') {
@@ -789,10 +781,8 @@ void AndaL (int y, int x)
 				case 'E':
 					y--; x--;
 
-					if (vida_chefe > 0) {
-						if (BateChefe (y, x))
-							return;
-					}
+					if (vida_chefe > 0 && BateChefe (y, x))
+						return;
 
 					obst = AlgoNoCaminhoCampo (y, x);
 					if (obst == '<' || obst == '=') {
@@ -827,6 +817,7 @@ void AndaL (int y, int x)
 			switch (h_dir) {
 				case 'D':
 					y++; x++;
+					
 					if (y == BARRA_y0) {
 						obst = AlgoNoCaminhoBarra (y, x);
 						if (obst == 'x') {
@@ -845,10 +836,8 @@ void AndaL (int y, int x)
 						}
 					}
 
-					if (vida_chefe > 0) {
-						if (BateChefe (y, x))
-							return;
-					}
+					if (vida_chefe > 0 && BateChefe (y, x))
+						return;
 
 					obst = AlgoNoCaminhoCampo (y, x);
 					if (obst == '=' || obst == '>') {
@@ -881,6 +870,7 @@ void AndaL (int y, int x)
 					break;
 				case 'E':
 					y++; x--;
+					
 					if (y == BARRA_y0) {
 						obst = AlgoNoCaminhoBarra (y, x);
 						if (obst == 'x') {
@@ -899,10 +889,8 @@ void AndaL (int y, int x)
 						}
 					}
 
-					if (vida_chefe > 0) {
-						if (BateChefe (y, x))
-							return;
-					}
+					if (vida_chefe > 0 && BateChefe (y, x))
+						return;
 
 					obst = AlgoNoCaminhoCampo (y, x);
 					if (obst == '<' || obst == '=') {
@@ -959,7 +947,7 @@ void MoveUltimo ()
 				Quebra ('<', y_ultim + CAMPO_y0, x_ultim + CAMPO_x0);
 				return;
 			}
-			mvwprintw (campo, y_ultim, x_ultim, " <=>");
+			mvwaddstr (campo, y_ultim, x_ultim, " <=>");
 			wrefresh (campo);
 			x_ultim++;
 			break;
@@ -970,7 +958,7 @@ void MoveUltimo ()
 				return;
 			}
 			x_ultim--;
-			mvwprintw (campo, y_ultim, x_ultim, "<=> ");
+			mvwaddstr (campo, y_ultim, x_ultim, "<=> ");
 			wrefresh (campo);
 			break;
 	}
@@ -1058,15 +1046,15 @@ char AlgoNoCaminhoCampo (int y, int x)
 void Quebra (char obst, int y, int x)
 {
 	if (obst == '<') {
-		mvwprintw (campo, y - CAMPO_y0, x - CAMPO_x0, "   ");
+		mvwaddstr (campo, y - CAMPO_y0, x - CAMPO_x0, "   ");
 		wrefresh (campo);
 	}
 	else if (obst == '=') {
-		mvwprintw (campo, y - CAMPO_y0, x - CAMPO_x0 - 1, "   ");
+		mvwaddstr (campo, y - CAMPO_y0, x - CAMPO_x0 - 1, "   ");
 		wrefresh (campo);
 	}
 	else if (obst == '>') {
-		mvwprintw (campo, y - CAMPO_y0, x - CAMPO_x0 - 2, "   ");
+		mvwaddstr (campo, y - CAMPO_y0, x - CAMPO_x0 - 2, "   ");
 		wrefresh (campo);
 	}
 
@@ -1077,7 +1065,7 @@ void Quebra (char obst, int y, int x)
 // último bloquinho: falinhas [na main ele começa a mexer]
 	if (numblocos == 1) {
 		attron (A_BOLD);
-		mvprintw (BARRA_y0 + 2, COLS/2 - 5, "Finish him!");
+		mvaddstr (BARRA_y0 + 2, COLS/2 - 5, "Finish him!");
 		refresh ();
 		sleep (1);
 // onde está o último bloquinho?
@@ -1089,10 +1077,10 @@ void Quebra (char obst, int y, int x)
 				break;
 		}
 		
-		mvprintw (y_ultim - 1, x_ultim, "NO!");
+		mvaddstr (y_ultim - 1, x_ultim, "NO!");
 		refresh ();
 		sleep (1);
-		mvprintw (y_ultim - 1, x_ultim, "   ");
+		mvaddstr (y_ultim - 1, x_ultim, "   ");
 		refresh ();
 
 // último: coordenadas tela → coordenadas campo
@@ -1133,10 +1121,10 @@ void Morreu ()
 	if (vidas == 0) {
 		attron (A_BOLD);
 		for ( ; i<4; i++) {
-			mvprintw (BARRA_y0 + 2, COLS/2 - 5, "FIM DE JOGO");
+			mvaddstr (BARRA_y0 + 2, COLS/2 - 5, "FIM DE JOGO");
 			refresh ();
 			usleep (6e5);
-			mvprintw (BARRA_y0 + 2, COLS/2 - 5, "           ");
+			mvaddstr (BARRA_y0 + 2, COLS/2 - 5, "           ");
 			refresh ();
 			usleep (6e5);
 		}
@@ -1196,17 +1184,17 @@ void FaseDois ()
 	};
 	
 // apaga o "Finish Him!"
-	mvprintw (BARRA_y0 + 2, COLS/2 - 5, "           ");
+	mvaddstr (FALA_y0, COLS/2 - 5, "           ");
 
 // tem uma chance em dificuldade de ganhar uma vida extra [ebaa! xD]
 	if (rand() % dificuldade == 0) {
 		attron (COLOR_PAIR (7));
-		mvprintw (1, COLS - 14, "+1");
+		mvaddstr (1, COLS - 14, "+1");
 		refresh ();
 		sleep (2);
 		vidas++;
 		AtualizaHud ();
-		mvprintw (1, COLS - 14, "  ");
+		mvaddstr (1, COLS - 14, "  ");
 		refresh ();
 		attroff (COLOR_PAIR (7));
 	}
@@ -1232,7 +1220,7 @@ void FaseDois ()
 	int y, i;
 // historinha, frase por frase
 	for (y = 0; y < 2; y++) {
-		mvprintw (FALA_y0, FALA_x0, historia[y]);
+		mvaddstr (FALA_y0, FALA_x0, historia[y]);
 		refresh ();
 		usleep (25e5);
 		move (FALA_y0, 0);
@@ -1253,7 +1241,7 @@ void FaseDois ()
 
 // e mais linhas de fala do chefão
 	for (y = 0; y < 8; y++) {
-		mvprintw (FALA_y0, FALA_x0, falas[y]);
+		mvaddstr (FALA_y0, FALA_x0, falas[y]);
 		refresh ();
 		usleep (25e5);
 // ó a maldição!
@@ -1275,7 +1263,7 @@ void FaseDois ()
 
 
 	attron (A_BOLD);
-	mvprintw (FALA_y0, COLS/2 - 4, "Kill him!");
+	mvaddstr (FALA_y0, COLS/2 - 4, "Kill him!");
 	refresh ();
 
 // bolinha no começo
@@ -1314,10 +1302,10 @@ void Ganhou ()
 	
 	attron (A_BOLD);
 	for (i = 0; i < 4; i++) {
-		mvprintw (FALA_y0, COLS/2 - 5, "VOCÊ GANHOU!");
+		mvaddstr (FALA_y0, COLS/2 - 5, "VOCÊ GANHOU!");
 		refresh ();
 		usleep (6e5);
-		mvprintw (FALA_y0, COLS/2 - 5, "              ");
+		mvaddstr (FALA_y0, COLS/2 - 5, "              ");
 		refresh ();
 		usleep (6e5);
 	}
