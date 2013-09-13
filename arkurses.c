@@ -1,4 +1,4 @@
-#define FASEDOIS
+//#define FASEDOIS
 
 /*
  *						Arkanoid versus Ncurses: ARKURSES
@@ -31,8 +31,6 @@
  *		-Sim, esse bagulho roda nos terminais virtuais [tty] [é até melhor de jogar];
  *		-Esse jogo buga bastante;
  *		-Não existe tal coisa como física;
- *		-Raça Vim! [nota: esse código foi inteiramente escrito no medit];
- *		-Raça Emacs! [nota: sim, ambos são muito bons];
  *		-Não reclame da vida.
  *
  *	Hell, yeah
@@ -196,12 +194,13 @@ int main ()
 		nodelay (stdscr, TRUE);	// não espera o getch(), pra jogar mesmo
 
 		while (s != KEY_F(2) && s != 'q') {
-			s = getch ();
+			if ((s = getch ()))
+				flushinp ();
 			
 // último bloquinho: falas e ele começa a mexer
-			if (numblocos == 1 && frame % 5 == 0) {
+			if (numblocos == 1 && frame % 5 == 0)
 				MoveUltimo ();
-			}
+
 // fase dois [depois de destruir todos os blocos]: chefe loko
 			else if (vida_chefe > 0 && frame % 150 == 0)
 				MoveChefe ();
@@ -278,7 +277,7 @@ void Help ()
 	mvwaddstr (help, 3, 1, "'+' or '=':");
 	mvwaddstr (help, 4, 1, "Space:");
 	mvwaddstr (help, 5, 1, "F2:");
-	mvwaddstr (help, 6, 1, "'q':");
+	mvwaddstr (help, 6, 1, "Q:");
 
 	wattrset (help, COLOR_PAIR (BGhelp));
 	mvwaddstr (help, 1, 20, "move left/right");
@@ -286,7 +285,7 @@ void Help ()
 	mvwaddstr (help, 3, 13, "speed up");
 	mvwaddstr (help, 4, 8, "pause");
 	mvwaddstr (help, 5, 5, "reset game");
-	mvwaddstr (help, 6, 6, "quit");
+	mvwaddstr (help, 6, 4, "quit");
 
 // writes the help window, wait for some key to be pressed and delete the help window
 	wrefresh (help);
