@@ -96,7 +96,9 @@ void Morreu ();		// vai que ele morre, né?
 void FaseDois ();	// ou passa do começo?
 void Ganhou ();		// ou até ganha o jogo!
 int BateChefe (int y, int x);	// bateu no chefão; porrada, manow!
-
+void AtualizaVidaChefe ();
+void GanhaTiro ();
+void Shoot ();
 
 
 WINDOW *hud, *campo, *barra, *bola, *chefe, *HP_chefe;
@@ -118,8 +120,7 @@ int periodo;	// tempim entre os frames: 10~20
 
 
 
-int main ()
-{
+int main () {
 	int i;
 
 	setlocale (LC_ALL, "");	// para aparecer os chars doidos
@@ -167,6 +168,7 @@ int main ()
 	AtualizaHud ();
 
 	int frame;	// frame em que está: para mover a bolinha e o último bloco com velocidades diferentes
+	char tiro = 0;
 	while (s != 'q') {
 		CriaCampo ();				// novo jogo:
 		CriaBlocos ();
@@ -203,8 +205,14 @@ int main ()
 				MoveUltimo ();
 
 // fase dois [depois de destruir todos os blocos]: chefe loko
-			else if (vida_chefe > 0 && frame % 150 == 0)
+			else if (vida_chefe > 0 && frame % 150 == 0) {
 				MoveChefe ();
+				// ganha tiro depois dum tempo
+				if (tiro == 30)
+					GanhaTiro ();
+					
+				tiro++;
+			}
 
 // mexe a bolinha
 			if (frame % 7 == 0)
@@ -220,6 +228,12 @@ int main ()
 					break;
 				case KEY_RIGHT: case 'd':
 					MoveBarraDir ();
+					break;
+				
+				// tiro, pro chefe
+				case KEY_UP: case 'w':
+					if (tiro >= 30)
+						Shoot ();
 					break;
 					
 // aumenta a velocidade ['=' para quem usa notebook sem teclado numérico e não quer segurar o shift, que nem eu]
@@ -258,8 +272,7 @@ int main ()
 
 
 /* Displays the help (in a created window and panel, for going back to the normal field after) */
-void Help ()
-{
+void Help () {
 	WINDOW *help;
 	PANEL *up;
 
@@ -303,8 +316,7 @@ void Help ()
 
 
 /* Pause the game, waiting for unpause/quit/reset game */
-void Pause ()
-{
+void Pause () {
 	WINDOW *pause = newwin (1, COLS, FALA_y0, 0);
 	PANEL *up = new_panel (pause);
 	
@@ -328,8 +340,7 @@ void Pause ()
 
 
 /* Restart the curses windows, for when restarting the game */
-void Restart ()
-{
+void Restart () {
 	WINDOW *new = newwin (1, COLS, FALA_y0, 0);
 	PANEL *up = new_panel (new);
 	
@@ -372,16 +383,14 @@ void Restart ()
 
 
 /* reescreve quantas vidas tem e quantos blocos faltam */
-void AtualizaHud ()
-{
+void AtualizaHud () {
 	mvwprintw (hud, 0, COLS - 21, "vidas: %d  blocos: %3.d", vidas, numblocos);
 	wrefresh (hud);
 }
 
 
 /* Cria o campo, com sua caixinha bonitinha */
-void CriaCampo ()
-{
+void CriaCampo () {
 	campo = subwin (stdscr, CAMPO_ALTURA, CAMPO_LARGURA, CAMPO_y0, CAMPO_x0);
 	wattron (stdscr, COLOR_PAIR (8));
 	box (campo, 0, 0);
@@ -389,8 +398,7 @@ void CriaCampo ()
 
 
 /* Desenha os blocos na tela, na posição certa, uma linha de cada cor */
-void CriaBlocos ()
-{
+void CriaBlocos () {
 	int cor = 2, x, y;
 	
 	wattron (campo, A_BOLD);
@@ -407,8 +415,7 @@ void CriaBlocos ()
 
 
 /* Cria a barra, na posição de início */
-void CriaBarra ()
-{
+void CriaBarra () {
 	barra = subwin (stdscr, 1, 4, BARRA_y0, BARRA_x0);
 	mvwaddstr (barra, 0, 0, "<xx>");
 	wrefresh (barra);
@@ -416,8 +423,7 @@ void CriaBarra ()
 
 
 /* Cria a bolinha, na posição de início */
-void CriaBola ()
-{
+void CriaBola () {
 	bola = subwin (stdscr, 1, 1, BOLA_y0, BOLA_x0);
 	mvwaddch (bola, 0, 0, 'O');
 	wrefresh (bola);
@@ -425,8 +431,7 @@ void CriaBola ()
 
 
 /* Move a barrinha uma casa pra esquerda */
-void MoveBarraEsq ()
-{
+void MoveBarraEsq () {
 	int x, y; // coordenadas atuais da barra (contadas a partir do '<')
 	getbegyx (barra, y, x);
 
@@ -445,8 +450,7 @@ void MoveBarraEsq ()
 
 
 /* Move a barrinha uma casa pra direita */
-void MoveBarraDir ()
-{
+void MoveBarraDir () {
 	int x, y; // coordenadas atuais da barra (contadas a partir do '<')
 	getbegyx (barra, y, x);
 
@@ -465,8 +469,7 @@ void MoveBarraDir ()
 
 
 /* Move a bolinha, levando em consideração o tipo do movimento */
-void MoveBolinha ()
-{
+void MoveBolinha () {
 	int y, x;	// coordenadas da bolinha
 
 	getbegyx (bola, y, x);	// onde está a bola?
@@ -497,8 +500,7 @@ void MoveBolinha ()
 
 
 /* Anda em 45°: 1×1 */
-void AndaX (int y, int x)
-{
+void AndaX (int y, int x) {
 	char obst;
 	
 	if (v_dir == 'C')
@@ -691,8 +693,7 @@ void AndaX (int y, int x)
 
 
 /* Anda em L: 1×2 → primeiro para o lado, e então diagonal */
-void AndaL (int y, int x)
-{
+void AndaL (int y, int x) {
 	char obst;
 
 // primeiro pro lado
@@ -927,8 +928,7 @@ void AndaL (int y, int x)
 
 
 /* Move o último bloquinho, quando só faltar ele */
-void MoveUltimo ()
-{
+void MoveUltimo () {
 	static char lado_ultim='D';	// direção horizontal do movimento do último bloquinho: E para esquerda e D para direita
 	
 // começo do campo, agora vai pra direita
@@ -965,8 +965,7 @@ void MoveUltimo ()
 
 
 /* Move o chefe da 2ª parte do jogo */
-void MoveChefe ()
-{
+void MoveChefe () {
 	char *cara[] = {
 		"< > < >",
 		"< 0 0 >",
@@ -1001,8 +1000,7 @@ void MoveChefe ()
 
 
 /* prevê colisão com a barra */
-char AlgoNoCaminhoBarra (int y, int x)
-{
+char AlgoNoCaminhoBarra (int y, int x) {
 	int y_bar, x_bar;
 
 	getbegyx (barra, y_bar, x_bar);
@@ -1015,8 +1013,7 @@ char AlgoNoCaminhoBarra (int y, int x)
 
 
 /* prevê colisão com a bolinha [a partir de coordenadas do campo] */
-char AlgoNoCaminhoBola (int y, int x)
-{
+char AlgoNoCaminhoBola (int y, int x) {
 	int y_bola, x_bola;
 
 	getbegyx (bola, y_bola, x_bola);
@@ -1032,8 +1029,7 @@ char AlgoNoCaminhoBola (int y, int x)
 
 
 /* prevê colisão com os bloquinhos */
-char AlgoNoCaminhoCampo (int y, int x)
-{
+char AlgoNoCaminhoCampo (int y, int x) {
 // coordenada tela → coordenada campo
 	y -= CAMPO_y0;
 	x -= CAMPO_x0;
@@ -1043,8 +1039,7 @@ char AlgoNoCaminhoCampo (int y, int x)
 
 
 /* destrói o bloquinho, quando acertado */
-void Quebra (char obst, int y, int x)
-{
+void Quebra (char obst, int y, int x) {
 	if (obst == '<') {
 		mvwaddstr (campo, y - CAMPO_y0, x - CAMPO_x0, "   ");
 		wrefresh (campo);
@@ -1097,8 +1092,7 @@ void Quebra (char obst, int y, int x)
 
 
 /* morreu, diminui uma vida; não tem mais, recomeça o jogo [se quiser, claro] */
-void Morreu ()
-{
+void Morreu () {
 	static char i = 0;
 
 	i++;
@@ -1135,8 +1129,7 @@ void Morreu ()
 
 
 /* Solta um fogo de artifício, pra próxima funçãozinha aí =] */
-void FogoArtificio (int x)
-{
+void FogoArtificio (int x) {
 	int y;
 
 	for (y = BARRA_y0 - 1; y >= BLOCO_y0; y--) {
@@ -1160,8 +1153,7 @@ void FogoArtificio (int x)
 
 
 /* Passou do começo [os bloco], historinha, e chefe "VWAHAHAHAHA" */
-void FaseDois ()
-{
+void FaseDois () {
 	char *historia[] = {
 		"Parabéns! Você derrotou o último bloquinho!",
 		"E assim, a paz retornou ao mundo... Mas o quê?"
@@ -1300,8 +1292,7 @@ void FaseDois ()
 
 
 /* Bom jogo, jovem miriápode; tentarás outra vez? */
-void Ganhou ()
-{
+void Ganhou () {
 	int i;
 	
 	attron (A_BOLD);
@@ -1319,8 +1310,7 @@ void Ganhou ()
 
 
 /* Vê se acertou o chefão, e se sim: PORRADA NELE! */
-int BateChefe (int y, int x)
-{
+int BateChefe (int y, int x) {
 // coordenadas gerais → coordenadas campo
 	y -= CAMPO_y0;
 	x -= CAMPO_x0;
@@ -1368,6 +1358,7 @@ int BateChefe (int y, int x)
 						h_dir = 'E';
 					else
 						h_dir = 'D';
+					
 					if (l_mov == 'H')
 						break;
 				}
@@ -1384,17 +1375,35 @@ int BateChefe (int y, int x)
 				break;
 		}
 	
-		mvwaddstr (HP_chefe, vida_chefe, 0, "\\/");
-		mvwaddstr (HP_chefe, vida_chefe + 1, 0, "  ");
-		wrefresh (HP_chefe);
-	
-		vida_chefe--;
-		if (vida_chefe == 0)
-			Ganhou ();
+		AtualizaVidaChefe ();
 
 		return 1;
 	}
 // se não tá nem no Y do chefão, nem tem como bater
 	else
 		return 0;
+}
+
+
+/* Tira um de vida do chefão */
+void AtualizaVidaChefe () {
+	mvwaddstr (HP_chefe, vida_chefe, 0, "\\/");
+	mvwaddstr (HP_chefe, vida_chefe + 1, 0, "  ");
+	wrefresh (HP_chefe);
+
+	vida_chefe--;
+	if (vida_chefe == 0)
+		Ganhou ();
+}
+
+
+/* ganha o tiro, pra usar contra o chefão */
+void GanhaTiro () {
+	
+}
+
+
+/* Atira contra o chefão, pra ficar mais divertido o negócio */
+void Shoot () {
+	
 }
