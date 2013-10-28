@@ -1,5 +1,5 @@
-#define FASEDOIS
-#define PULAHIST
+//#define FASEDOIS
+//#define PULAHIST
 
 /*
  *						Arkanoid versus Ncurses: ARKURSES
@@ -1413,10 +1413,10 @@ void Shoot (char *fired) {
 	if (!*fired) {
 		// ganha o tiro
 		if (tiro == SHOT_TIME) {
-			attron (A_UNDERLINE | COLOR_PAIR (FGshot));
+			attron (COLOR_PAIR (FGshot));
 			mvaddstr (CAMPO_ALTURA/2, CAMPO_x0 - 17, "You got a shot!");
 			mvaddstr (CAMPO_ALTURA/2 + 1, CAMPO_x0 - 17, "Press Up key or W");
-			attroff (A_UNDERLINE | COLOR_PAIR (FGshot));
+			attroff (COLOR_PAIR (FGshot));
 			refresh ();
 			tiro++;
 		}
@@ -1456,14 +1456,13 @@ void Shoot (char *fired) {
 
 /* Clicou pra atirar */
 void ClickShoot () {
-		// descobre o 'x' da barra, pro tiro sair do meio dela
-		getbegyx (barra, y_tiro, x_tiro);
-		y_tiro -= CAMPO_y0 + 1;
-		x_tiro -= CAMPO_x0 - 1;
-		
-		mvaddstr (CAMPO_ALTURA/2, 0, "               ");
-		mvaddstr (CAMPO_ALTURA/2 + 1, 0, "                 ");
-		refresh ();
-		tiro++;
-		return;
+	// descobre o 'x' da barra, pro tiro sair do meio dela
+	getbegyx (barra, y_tiro, x_tiro);
+	y_tiro -= CAMPO_y0 + 1;
+	x_tiro -= CAMPO_x0 - 1;
+	
+	mvaddstr (CAMPO_ALTURA/2, CAMPO_x0 - 17, "               ");
+	mvaddstr (CAMPO_ALTURA/2 + 1, CAMPO_x0 - 17, "                 ");
+	refresh ();
+	return;
 }
