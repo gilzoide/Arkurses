@@ -48,9 +48,13 @@
 #include <locale.h>	// pra chars doidos [ê, ç]
 
 #define BGhelp 10
+#define FGshot 4
+#define FGboss 3
 #define HELP_WIDTH 36
 
 #define LINES 24
+
+#define SHOT_TIME 150	// boss moves for player to get a shot
 
 #define CAMPO_ALTURA 22
 #define CAMPO_LARGURA 47
@@ -97,8 +101,9 @@ void FaseDois ();	// ou passa do começo?
 void Ganhou ();		// ou até ganha o jogo!
 int BateChefe (int y, int x);	// bateu no chefão; porrada, manow!
 void AtualizaVidaChefe ();
-void GanhaTiro ();
-void Shoot ();
+
+void Shoot (char*);	// todas as funcoes sobre o tiro
+void ClickShoot ();
 
 
 WINDOW *hud, *campo, *barra, *bola, *chefe, *HP_chefe;
@@ -117,7 +122,8 @@ char dificuldade;	// número de linhas de bloquinhos
 
 int s;	// escolhas do teclado
 int periodo;	// tempim entre os frames: 10~20
-
+unsigned char tiro;	// contagem pra tiro: <SHOT_TIME, conta;		SHOT_TIME, disponivel;		>SHOT_TIME, atirou
+int y_tiro, x_tiro;	// coordenadas do tiro
 
 
 int main () {
@@ -168,7 +174,7 @@ int main () {
 	AtualizaHud ();
 
 	int frame;	// frame em que está: para mover a bolinha e o último bloco com velocidades diferentes
-	char tiro = 0;
+	char fired;	// diz se atirou ou nao
 	while (s != 'q') {
 		CriaCampo ();				// novo jogo:
 		CriaBlocos ();
@@ -191,6 +197,8 @@ int main () {
 
 		AtualizaHud ();
 		frame = 0;
+		tiro = 0;
+		fired = 0;
 		s = 0;
 		nodelay (stdscr, FALSE);	// começa jogo só se 
 		getch ();					// clicar alguma coisa
@@ -205,13 +213,11 @@ int main () {
 				MoveUltimo ();
 
 // fase dois [depois de destruir todos os blocos]: chefe loko
-			else if (vida_chefe > 0 && frame % 150 == 0) {
-				MoveChefe ();
-				// ganha tiro depois dum tempo
-				if (tiro == 30)
-					GanhaTiro ();
-					
-				tiro++;
+			else if (vida_chefe > 0) {
+				if (frame % 150 == 0)
+					MoveChefe ();
+				if (frame % 5 == 0)
+					Shoot (&fired);
 			}
 
 // mexe a bolinha
@@ -232,8 +238,10 @@ int main () {
 				
 				// tiro, pro chefe
 				case KEY_UP: case 'w':
-					if (tiro >= 30)
-						Shoot ();
+					if (tiro > SHOT_TIME && !fired) {
+						ClickShoot ();
+						fired = 1;
+					}
 					break;
 					
 // aumenta a velocidade ['=' para quem usa notebook sem teclado numérico e não quer segurar o shift, que nem eu]
@@ -992,6 +1000,7 @@ void MoveChefe () {
 	else
 		x_chefe = (rand () % (CAMPO_LARGURA - 8)) + 1;
 
+	wattron (campo, COLOR_PAIR (FGboss));
 // e desenha-o novamente
 	for (i = 0; i < 3; i++)
 		mvwaddstr (campo, y_chefe + i, x_chefe, cara[i]);
@@ -1226,7 +1235,7 @@ void FaseDois () {
 	y_chefe = 1;
 	x_chefe = (x - CAMPO_x0) - 2;
 	wattron (campo, A_BOLD);
-	wattron (campo, COLOR_PAIR (3));
+	wattron (campo, COLOR_PAIR (FGboss));
 	for (y = 0; y < 3; y++)
 		for (x = 0; x < 7; x++) {
 			mvwaddch (campo, y_chefe + y, x_chefe + x, cara[y][x]);
@@ -1397,13 +1406,64 @@ void AtualizaVidaChefe () {
 }
 
 
-/* ganha o tiro, pra usar contra o chefão */
-void GanhaTiro () {
-	
+/* Atira contra o chefão, pra ficar mais divertido o negócio
+ * cuida de ganhar o tiro, atirar e mover o tiro, assim como calcular a colisao com o chefe
+ */
+void Shoot (char *fired) {	
+	if (!*fired) {
+		// ganha o tiro
+		if (tiro == SHOT_TIME) {
+			attron (A_UNDERLINE | COLOR_PAIR (FGshot));
+			mvaddstr (CAMPO_ALTURA/2, CAMPO_x0 - 17, "You got a shot!");
+			mvaddstr (CAMPO_ALTURA/2 + 1, CAMPO_x0 - 17, "Press Up key or W");
+			attroff (A_UNDERLINE | COLOR_PAIR (FGshot));
+			refresh ();
+			tiro++;
+		}
+		else if (tiro < SHOT_TIME) {
+			tiro++;
+		}
+	}
+	// tiro correndo
+	else {
+		// ainda nao tem nem esperanca de acertar
+		if (y_tiro >= CAMPO_y0 + 3) {
+			wattron (campo, COLOR_PAIR (FGshot));
+			
+			mvwaddstr (campo, y_tiro, x_tiro, "||");
+			wrefresh (campo);
+			
+			wattroff (campo, COLOR_PAIR (FGshot));
+			y_tiro--;
+		}
+		// ta no y do chefe, sera que acertou?
+		else {
+			// apaga rastro do tiro
+			for (y_tiro++; y_tiro < BARRA_y0 - CAMPO_y0; y_tiro++) {
+				mvwaddstr (campo, y_tiro, x_tiro, "  ");
+				wrefresh (campo);
+			}
+			// acertou! UHUL!
+			if (x_tiro >= x_chefe && x_tiro <= x_chefe + 6) {
+				AtualizaVidaChefe ();
+			}
+			tiro = 0;
+			*fired = 0;
+		}
+	}
 }
 
 
-/* Atira contra o chefão, pra ficar mais divertido o negócio */
-void Shoot () {
-	
+/* Clicou pra atirar */
+void ClickShoot () {
+		// descobre o 'x' da barra, pro tiro sair do meio dela
+		getbegyx (barra, y_tiro, x_tiro);
+		y_tiro -= CAMPO_y0 + 1;
+		x_tiro -= CAMPO_x0 - 1;
+		
+		mvaddstr (CAMPO_ALTURA/2, 0, "               ");
+		mvaddstr (CAMPO_ALTURA/2 + 1, 0, "                 ");
+		refresh ();
+		tiro++;
+		return;
 }
