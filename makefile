@@ -1,5 +1,5 @@
 # Arkurses!
-objs = main.o arkurses.o
+objs = main.o faseDois.o game.o movimento.o
 exe = Arkurses
 CC = gcc
 CFLAGS = -g -O2 -march=native -lcurses -lpanel

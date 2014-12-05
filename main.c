@@ -1,13 +1,22 @@
-#include "arkurses.h"
-/*
- *						Arkanoid versus Ncurses: ARKURSES
+#include "game.h"
+#include "faseDois.h"
+#include "movimento.h"
+/** @mainpage Arkurses
  *
- *		Sinopse: Você está dentro do personagem de uma barra. Uma barra feita de
+ *	@author Gil Barbosa Reis
+ *
+ *						#Arkanoid vs Curses: ARKURSES
+ *
+ *	@section Sinopse
+ *
+ *	Você está dentro do personagem de uma barra. Uma barra feita de
  *	caracteres! O mundo está sendo atacado por terríveis bloquinhos coloridos do
  *	mal! Direcione a bolinha aos blocos e derrote todos eles, salvando o mundo
  *	das garras da guangue dos "MenorIgualMaior".
  *
- *		Regras: Primeiramente, digite o número de linhas de tropas de bloquinhos
+ *	@section Regras
+ *
+ *	Primeiramente, digite o número de linhas de tropas de bloquinhos
  *	para batalhar (entre 1 e 8). Mova a barra com as setinhas. Tecla '+' ou '='
  *	aumentam a velocidade da bolinha, e '-' a diminui. A bolinha move-se
  *	em 45° ao trombar no meio da barra e em L ao colidir com as pontas '<'/'>'.
@@ -15,25 +24,25 @@
  *	apertando a tecla 'q'. Clique F2 para opção "novo jogo", e 's' para confirmar;
  *	'n' volta para o jogo e 'q' ainda sai do jogo.
  *
- *	Colisões e inversões de sentido:
- *		em 45°:
- *			p/ Esquerda com canto direito '>': inversão em ambas as direções;
- *			p/ Direita com canto esquerdo '<': inversão em ambas as direções;
- *			p/ Esquerda com resto '='/'<': inverte direção vertical;
- *			p/ Direita com resto '='/'>': inverte direção vertical;
- *		em L:
- *			na horizontal: inverte sentido horizontal;
- *			diagonal em qualquer sentido horizontal, com bloco em geral: inverte direção vertical;
+ *	@section colision Colisões e inversões de sentido
  *
- *	Algumas considerações:
- *		-Compilando no gcc? Não esqueça de adicionar a flag "-lpanel -lncurses" [senão não funfa];
- *		-Sim, esse bagulho roda nos terminais virtuais [tty] [é até melhor de jogar];
- *		-Esse jogo buga bastante;
- *		-Não existe tal coisa como física;
- *		-Não reclame da vida.
+ *	- em 45°:
+ *		+ p/ Esquerda com canto direito '>': inversão em ambas as direções;
+ *		+ p/ Direita com canto esquerdo '<': inversão em ambas as direções;
+ *		+ p/ Esquerda com resto '='/'<': inverte direção vertical;
+ *		+ p/ Direita com resto '='/'>': inverte direção vertical;
+ *	- em L:
+ *		+ na horizontal: inverte sentido horizontal;
+ *		+ diagonal em qualquer sentido horizontal, com bloco em geral: inverte direção vertical;
+ *
+ *	@section considera Algumas considerações:
+ *		- Compilando no gcc? Não esqueça de adicionar a flag "-lpanel -lncurses" [senão não funfa];
+ *		- Sim, esse bagulho roda nos terminais virtuais [tty] [é até melhor de jogar];
+ *		- Esse jogo buga bastante;
+ *		- Não existe tal coisa como física;
+ *		- Não reclame da vida.
  *
  *	Hell, yeah
- *	Gil Barbosa Reis
  *
  */
 
