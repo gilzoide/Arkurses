@@ -1,5 +1,8 @@
 # executables
-arkurses
-a.out
+Arkurses
+*.o
 # text backups
 *~
+*.swp
+# other stuff
+cscope*

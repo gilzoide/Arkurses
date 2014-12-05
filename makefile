@@ -1,13 +1,14 @@
 # Arkurses!
+objs = main.o arkurses.o
+exe = Arkurses
+CC = gcc
+CFLAGS = -g -O2 -march=native -lcurses -lpanel
 
-all : arkurses.c
-	@cc arkurses.c -lpanel -lncurses -o arkurses -Os -march=native
+all : $(objs)
+	$(CC) $(CFLAGS) $(objs) -o $(exe)
 
-run : arkurses.c arkurses
-	@./arkurses
-
-commit : .git
-	@git commit -a && git push
+run :
+	@./$(exe)
 
 clean :
-	@rm arkurses *~
+	$(RM) $(exe) $(objs) *~
